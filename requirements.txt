@@ -1,1 +1,2 @@
 # Pip install these python packages
+pygame
