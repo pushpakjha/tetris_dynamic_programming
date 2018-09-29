@@ -12,64 +12,14 @@
 #
 # Have fun!
 
-# Copyright (c) 2010 "Kevin Chabowski"<kevin@kch42.de>
-# 
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-# 
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-# 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-
-from random import randrange as rand
+# Copyright (c) 2010 "Kevin Chabowski"<kevin@kch42.de>, original tetris game
+# Pushpak Jha, added tetris player
 import pygame
 import sys
 import time
+from random import randrange as rand
 
-from tetris_dp.tetris_player import config
-from tetris_dp.tetris_player import rotate_clockwise
-from tetris_dp.tetris_player import check_collision
-from tetris_dp.tetris_player import remove_row
-from tetris_dp.tetris_player import join_matrixes
-from tetris_dp.tetris_player import new_board
-from tetris_dp.tetris_player import get_random_position
-
-colors = [(0,   0,   0), (255, 0,   0), (0,   150, 0), (0,   0,   255),
-          (255, 120, 0), (255, 255, 0), (180, 0,   255), (0,   220, 220)]
-
-# Define the shapes of the single parts
-tetris_shapes = [
-    [[1, 1, 1],
-     [0, 1, 0]],
-
-    [[0, 2, 2],
-     [2, 2, 0]],
-
-    [[3, 3, 0],
-     [0, 3, 3]],
-
-    [[4, 0, 0],
-     [4, 4, 4]],
-
-    [[0, 0, 5],
-     [5, 5, 5]],
-
-    [[6, 6, 6, 6]],
-
-    [[7, 7],
-     [7, 7]]
-]
+from tetris_dp.helpers import *
 
 
 class TetrisApp(object):
@@ -95,9 +45,7 @@ class TetrisApp(object):
         self.stone_x = int(config['cols'] / 2 - len(self.stone[0])/2)
         self.stone_y = 0
 
-        if check_collision(self.board,
-                           self.stone,
-                           (self.stone_x, self.stone_y)):
+        if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
             self.gameover = True
 
     def init_game(self):
@@ -122,15 +70,20 @@ class TetrisApp(object):
         off_x, off_y = offset
         for y, row in enumerate(matrix):
             for x, val in enumerate(row):
-                if val:
-                    pygame.draw.rect(
-                        self.screen,
-                        colors[val],
-                        pygame.Rect(
-                            (off_x+x) * config['cell_size'],
-                            (off_y+y) * config['cell_size'],
-                            config['cell_size'],
-                            config['cell_size']), 0)
+                try:
+                    if val:
+                        pygame.draw.rect(
+                            self.screen,
+                            colors[val],
+                            pygame.Rect(
+                                (off_x+x) * config['cell_size'],
+                                (off_y+y) * config['cell_size'],
+                                config['cell_size'],
+                                config['cell_size']), 0)
+                except IndexError:
+                    print(self.board)
+                    print(self.stone)
+                    self.gameover = True
 
     def move(self, delta_x):
         if not self.gameover and not self.paused:
@@ -139,9 +92,7 @@ class TetrisApp(object):
                 new_x = 0
             if new_x > config['cols'] - len(self.stone[0]):
                 new_x = config['cols'] - len(self.stone[0])
-            if not check_collision(self.board,
-                                   self.stone,
-                                   (new_x, self.stone_y)):
+            if not check_collision(self.board, self.stone, (new_x, self.stone_y)):
                 self.stone_x = new_x
 
     def quit(self):
@@ -151,16 +102,12 @@ class TetrisApp(object):
 
     def drop(self):
         if not self.gameover and not self.paused:
-            self.stone_y += 1
-            while not check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
-                    self.stone_y += 1
             self.board = join_matrixes(self.board, self.stone, (self.stone_x, self.stone_y))
             self.new_stone()
             while True:
                 for i, row in enumerate(self.board[:-1]):
                     if 0 not in row:
-                        self.board = remove_row(
-                          self.board, i)
+                        self.board = remove_row(self.board, i)
                         self.score += 1
                         break
                 else:
@@ -200,14 +147,14 @@ class TetrisApp(object):
                     self.center_msg("Paused")
                 else:
                     self.draw_matrix(self.board, (0, 0))
-                    self.draw_matrix(self.stone,
-                                     (self.stone_x,
-                                      self.stone_y))
+                    self.draw_matrix(self.stone, (self.stone_x, self.stone_y))
             pygame.display.update()
-            self.stone_x, self.stone = get_random_position(
-                self.board, self.stone, self.stone_x, self.stone_y)
+            # self.stone_x, self.stone = get_random_position(
+            #   self.board, self.stone, self.stone_x, self.stone_y)
+            self.stone_x, self.stone_y, self.stone = one_step_lookahead(
+                self.board, self.stone, self.stone_y)
             self.drop()
-            time.sleep(1)
+            time.sleep(0.15)
             pygame_clock.tick(config['maxfps'])
 
     def manual_run(self):
@@ -230,6 +177,7 @@ class TetrisApp(object):
             self.screen.fill((0, 0, 0))
             if self.gameover:
                 self.center_msg("""Game Over! Press space to continue""")
+                print('Final Score: {}'.format(self.score))
             else:
                 if self.paused:
                     self.center_msg("Paused")
@@ -255,13 +203,8 @@ class TetrisApp(object):
     def manual_drop(self):
         if not self.gameover and not self.paused:
             self.stone_y += 1
-            if check_collision(self.board,
-                               self.stone,
-                               (self.stone_x, self.stone_y)):
-                self.board = join_matrixes(
-                    self.board,
-                    self.stone,
-                    (self.stone_x, self.stone_y))
+            if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
+                self.board = join_matrixes(self.board, self.stone, (self.stone_x, self.stone_y))
                 self.new_stone()
                 while True:
                     for i, row in enumerate(self.board[:-1]):
