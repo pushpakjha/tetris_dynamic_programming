@@ -35,15 +35,15 @@
 from random import randrange as rand
 import pygame
 import sys
+import time
 
-# The configuration
-config = {
-    'cell_size':	20,
-    'cols':		10,
-    'rows':		20,
-    'delay':	750,
-    'maxfps':	30
-}
+from tetris_dp.tetris_player import config
+from tetris_dp.tetris_player import rotate_clockwise
+from tetris_dp.tetris_player import check_collision
+from tetris_dp.tetris_player import remove_row
+from tetris_dp.tetris_player import join_matrixes
+from tetris_dp.tetris_player import new_board
+from tetris_dp.tetris_player import get_random_position
 
 colors = [(0,   0,   0), (255, 0,   0), (0,   150, 0), (0,   0,   255),
           (255, 120, 0), (255, 255, 0), (180, 0,   255), (0,   220, 220)]
@@ -70,41 +70,6 @@ tetris_shapes = [
     [[7, 7],
      [7, 7]]
 ]
-
-
-def rotate_clockwise(shape):
-    return [[shape[y][x] for y in range(len(shape))] for x in range(len(shape[0]) - 1, -1, -1)]
-
-
-def check_collision(board, shape, offset):
-    off_x, off_y = offset
-    for cy, row in enumerate(shape):
-        for cx, cell in enumerate(row):
-            try:
-                if cell and board[cy + off_y][cx + off_x]:
-                    return True
-            except IndexError:
-                return True
-    return False
-
-
-def remove_row(board, row):
-    del board[row]
-    return [[0 for _ in range(config['cols'])]] + board
-
-
-def join_matrixes(mat1, mat2, mat2_off):
-    off_x, off_y = mat2_off
-    for cy, row in enumerate(mat2):
-        for cx, val in enumerate(row):
-            mat1[cy+off_y-1	][cx+off_x] += val
-    return mat1
-
-
-def new_board():
-    board = [[0 for _ in range(config['cols'])] for _ in range(config['rows'])]
-    board += [[1 for _ in range(config['cols'])]]
-    return board
 
 
 class TetrisApp(object):
@@ -186,22 +151,18 @@ class TetrisApp(object):
     def drop(self):
         if not self.gameover and not self.paused:
             self.stone_y += 1
-            if check_collision(self.board,
-                               self.stone,
-                               (self.stone_x, self.stone_y)):
-                self.board = join_matrixes(
-                  self.board,
-                  self.stone,
-                  (self.stone_x, self.stone_y))
-                self.new_stone()
-                while True:
-                    for i, row in enumerate(self.board[:-1]):
-                        if 0 not in row:
-                            self.board = remove_row(
-                              self.board, i)
-                            break
-                    else:
+            while not check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
+                    self.stone_y += 1
+            self.board = join_matrixes(self.board, self.stone, (self.stone_x, self.stone_y))
+            self.new_stone()
+            while True:
+                for i, row in enumerate(self.board[:-1]):
+                    if 0 not in row:
+                        self.board = remove_row(
+                          self.board, i)
                         break
+                else:
+                    break
 
     def rotate_stone(self):
         if not self.gameover and not self.paused:
@@ -234,11 +195,13 @@ class TetrisApp(object):
         self.paused = False
 
         pygame.time.set_timer(pygame.USEREVENT+1, config['delay'])
-        dont_burn_my_cpu = pygame.time.Clock()
-        while 1:
+        pygame_clock = pygame.time.Clock()
+        while True:
             self.screen.fill((0, 0, 0))
             if self.gameover:
                 self.center_msg("""Game Over! Press space to continue""")
+                time.sleep(1)
+                self.quit()
             else:
                 if self.paused:
                     self.center_msg("Paused")
@@ -250,13 +213,11 @@ class TetrisApp(object):
             pygame.display.update()
 
             for event in pygame.event.get():
-                if event.type == pygame.USEREVENT+1:
-                    self.drop()
-                elif event.type == pygame.QUIT:
+                if event.type == pygame.QUIT:
                     self.quit()
-                elif event.type == pygame.KEYDOWN:
-                    for key in key_actions:
-                        if event.key == eval("pygame.K_" + key):
-                            key_actions[key]()
-
-            dont_burn_my_cpu.tick(config['maxfps'])
+                else:
+                    self.stone_x, self.stone = get_random_position(
+                        self.board, self.stone, self.stone_x, self.stone_y)
+                    self.drop()
+                    time.sleep(1)
+            pygame_clock.tick(config['maxfps'])
