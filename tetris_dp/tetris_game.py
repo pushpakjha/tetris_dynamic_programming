@@ -80,6 +80,7 @@ class TetrisApp(object):
         self.height = config['cell_size']*config['rows']
 
         self.screen = pygame.display.set_mode((self.width, self.height))
+        self.score = 0
         self.stone = None
         self.stone_x = None
         self.stone_y = None
@@ -160,6 +161,7 @@ class TetrisApp(object):
                     if 0 not in row:
                         self.board = remove_row(
                           self.board, i)
+                        self.score += 1
                         break
                 else:
                     break
@@ -181,16 +183,6 @@ class TetrisApp(object):
             self.gameover = False
 
     def run(self):
-        key_actions = {
-            'ESCAPE':	self.quit,
-            'LEFT': lambda: self.move(-1),
-            'RIGHT': lambda: self.move(+1),
-            'DOWN':		self.drop,
-            'UP':		self.rotate_stone,
-            'p':		self.toggle_pause,
-            'SPACE':	self.start_game
-        }
-
         self.gameover = False
         self.paused = False
 
@@ -200,6 +192,7 @@ class TetrisApp(object):
             self.screen.fill((0, 0, 0))
             if self.gameover:
                 self.center_msg("""Game Over! Press space to continue""")
+                print('Final Score: {}'.format(self.score))
                 time.sleep(1)
                 self.quit()
             else:
@@ -211,13 +204,70 @@ class TetrisApp(object):
                                      (self.stone_x,
                                       self.stone_y))
             pygame.display.update()
+            self.stone_x, self.stone = get_random_position(
+                self.board, self.stone, self.stone_x, self.stone_y)
+            self.drop()
+            time.sleep(1)
+            pygame_clock.tick(config['maxfps'])
+
+    def manual_run(self):
+        key_actions = {
+            'ESCAPE': self.quit,
+            'LEFT': lambda: self.move(-1),
+            'RIGHT': lambda: self.move(+1),
+            'DOWN': self.manual_drop,
+            'UP': self.rotate_stone,
+            'p': self.toggle_pause,
+            'SPACE': self.start_game
+        }
+
+        self.gameover = False
+        self.paused = False
+
+        pygame.time.set_timer(pygame.USEREVENT + 1, config['delay'])
+        pygame_clock = pygame.time.Clock()
+        while 1:
+            self.screen.fill((0, 0, 0))
+            if self.gameover:
+                self.center_msg("""Game Over! Press space to continue""")
+            else:
+                if self.paused:
+                    self.center_msg("Paused")
+                else:
+                    self.draw_matrix(self.board, (0, 0))
+                    self.draw_matrix(self.stone,
+                                     (self.stone_x,
+                                      self.stone_y))
+            pygame.display.update()
 
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+                if event.type == pygame.USEREVENT + 1:
+                    self.manual_drop()
+                elif event.type == pygame.QUIT:
                     self.quit()
-                else:
-                    self.stone_x, self.stone = get_random_position(
-                        self.board, self.stone, self.stone_x, self.stone_y)
-                    self.drop()
-                    time.sleep(1)
+                elif event.type == pygame.KEYDOWN:
+                    for key in key_actions:
+                        if event.key == eval("pygame.K_" + key):
+                            key_actions[key]()
+
             pygame_clock.tick(config['maxfps'])
+
+    def manual_drop(self):
+        if not self.gameover and not self.paused:
+            self.stone_y += 1
+            if check_collision(self.board,
+                               self.stone,
+                               (self.stone_x, self.stone_y)):
+                self.board = join_matrixes(
+                    self.board,
+                    self.stone,
+                    (self.stone_x, self.stone_y))
+                self.new_stone()
+                while True:
+                    for i, row in enumerate(self.board[:-1]):
+                        if 0 not in row:
+                            self.board = remove_row(
+                                self.board, i)
+                            break
+                    else:
+                        break
