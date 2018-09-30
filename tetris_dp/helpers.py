@@ -116,22 +116,19 @@ def get_random_position(board, shape, shape_x, shape_y):
     return shape_x, final_shape
 
 
-def one_step_lookahead(board, shape, shape_y):
+def one_step_lookahead(board, shape):
     cost_to_move = {}
     max_x = len(board[0])
     # Get random rotation
     for rand_rotation in range(0, 4):
         if rand_rotation:
             shape = rotate_clockwise(shape)
-        #print('RAND ROTOTATION: {}'.format(rand_rotation))
         for new_x in range(0, max_x - len(shape[0]) + 1):
-            #print('NEW X: {}'.format(new_x))
             interm_shape_y = 0
             while not check_collision(board, shape, (new_x, interm_shape_y)):
                 interm_shape_y += 1
             interm_board = get_interm_board(board, shape, (new_x, interm_shape_y - 1))
             interm_cost = calculate_simple_cost(interm_board)
-            #print('INTERM COST: {}'.format(interm_cost))
             cost_to_move[interm_cost] = (new_x, interm_shape_y, shape)
     min_cost = min(cost_to_move.keys())
     return cost_to_move[min_cost]
@@ -143,18 +140,16 @@ def calculate_simple_cost(board):
     all_heights = []
     cost = []
     weights = []
-    cleared_rows = 0
     height_cost = 15
     diff_cost = 3
     max_height_cost = 50
-    clear_row_cost = -10
     hole_cost = 5
     weights.extend(max_x * [height_cost])
     weights.extend((max_x - 1) * [diff_cost])
-    # weights.append(clear_row_cost)
     weights.append(max_height_cost)
     weights.append(hole_cost)
     weights.append(-1)
+
     # Get the costs based on col height
     for x in range(0, max_x):
         for y in range(0, max_y):
@@ -165,21 +160,17 @@ def calculate_simple_cost(board):
                 cost.append((25 - y)**2)
                 all_heights.append(25-y)
                 break
+
     # Get the costs based on col height differences
     for ind in range(0, len(cost) - 1):
         cost.append(abs(cost[ind + 1] - cost[ind]))
-    # Reduce the cost if rows got cleared
-    for _, row in enumerate(board[:-1]):
-        if 0 not in row:
-            cleared_rows += 1
-    # cost.append(cleared_rows)
+
     # Add cost for max height
     cost.append(max(all_heights))
+
     # Increase costs if holes were created
     cost.append(find_all_holes(board))
     cost.append(1)
-    # print('cost list: {}'.format(cost))
-    # print('interm board: {}'.format(board))
     cost_matrix = numpy.matrix([cost])
     weights_matrix = numpy.matrix([weights])
     get_cost = cost_matrix*weights_matrix.getH()
@@ -194,7 +185,6 @@ def find_all_holes(board):
         for y in range(0, max_y):
             if find_holes_in_board(board, x, y, max_x, max_y):
                 total_holes += 1
-    # print('total_holes: {}'.format(total_holes))
     return total_holes
 
 
@@ -204,14 +194,17 @@ def find_holes_in_board(board, x, y, max_x, max_y):
     minus_y = y - 1
     if plus_y > max_y:
         plus_y = max_y
+        filled += 1
     if minus_y < 0:
         minus_y = 0
     plus_x = x + 1
     minus_x = x - 1
     if plus_x > max_x:
         plus_x = max_x
+        filled += 1
     if minus_x < 0:
         minus_x = 0
+        filled += 1
     if board[plus_y][x]:
         filled += 1
     if board[minus_y][x]:
@@ -220,7 +213,7 @@ def find_holes_in_board(board, x, y, max_x, max_y):
         filled += 1
     if board[y][minus_x]:
         filled += 1
-    if filled >= 2 and not board[y][x]:
+    if filled >= 3 and not board[y][x]:
         return True
     else:
         return False

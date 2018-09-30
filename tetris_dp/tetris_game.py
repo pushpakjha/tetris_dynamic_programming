@@ -42,6 +42,15 @@ class TetrisApp(object):
         pygame.event.set_blocked(pygame.MOUSEMOTION)  # Block mouse movement
         self.init_game()
 
+        self.font_name = pygame.font.match_font('arial')
+
+    def draw_text(self, surf, text, size, x, y):
+        font = pygame.font.Font(self.font_name, size)
+        text_surface = font.render(text, True, (255, 255, 255))
+        text_rect = text_surface.get_rect()
+        text_rect.midtop = (x, y)
+        surf.blit(text_surface, text_rect)
+
     def new_stone(self):
         self.stone = tetris_shapes[rand(len(tetris_shapes))]
         self.stone_x = int(config['cols'] / 2 - len(self.stone[0])/2)
@@ -82,6 +91,7 @@ class TetrisApp(object):
                                 (off_y+y) * config['cell_size'],
                                 config['cell_size'],
                                 config['cell_size']), 0)
+                        self.draw_text(self.screen, str(self.score), 18, 170, 10)
                 except IndexError:
                     print('***' * 20)
                     print('YOU SHOULD NOT BE HERE')
@@ -162,10 +172,10 @@ class TetrisApp(object):
             # self.stone_x, self.stone = get_random_position(
             #   self.board, self.stone, self.stone_x, self.stone_y)
             self.stone_x, self.stone_y, self.stone = one_step_lookahead(
-                self.board, self.stone, self.stone_y)
+                self.board, self.stone)
             self.drop()
             if not FAST_MODE:
-                time.sleep(0.15)
+                time.sleep(0.05)
             pygame_clock.tick(config['maxfps'])
 
     def manual_run(self):
