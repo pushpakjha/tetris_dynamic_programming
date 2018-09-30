@@ -1,7 +1,5 @@
 """Tetris player logic."""
 import copy
-import random
-import numpy
 
 from tetris_dp.constants import CONFIG
 
@@ -51,7 +49,7 @@ def get_interm_board(board, piece, offset):
     interm_board = copy.deepcopy(board)
     for row_index, row in enumerate(piece):
         for column_index, val in enumerate(row):
-            y_offset = row_index + off_y
+            y_offset = row_index + off_y - 1
             if interm_board[y_offset][column_index + off_x] and val:
                 interm_board[0][column_index + off_x] = -1
             else:
@@ -62,97 +60,6 @@ def get_interm_board(board, piece, offset):
     return interm_board
 
 
-def new_board():
-    """Spawn a new empty board."""
-    board = [[0 for _ in range(CONFIG['cols'])] for _ in range(CONFIG['rows'])]
-    board += [[1 for _ in range(CONFIG['cols'])]]
-    return board
-
-
-def get_random_position(board, piece, shape_x, shape_y):
-    """Player which returns a random move for a given piece and board."""
-    shape_x = shape_x
-    final_shape = piece
-
-    # Get random rotation
-    rand_rotation = random.randint(0, 3)
-    for _ in range(0, rand_rotation):
-        piece = rotate_clockwise(piece)
-    if not check_collision(board, piece, (shape_x, shape_y)):
-        final_shape = piece
-
-    # Get random x_position position
-    new_x = random.randint(0, 9)
-    if new_x > CONFIG['cols'] - len(piece[0]):
-        new_x = CONFIG['cols'] - len(piece[0])
-    if not check_collision(board, piece, (new_x, shape_y)):
-        shape_x = new_x
-    return shape_x, final_shape
-
-
-def one_step_lookahead(board, piece):
-    """Player which returns the lowest cost move given the current board and piece."""
-    cost_to_move = {}
-    max_x = len(board[0])
-    # Get random rotation
-    for rand_rotation in range(0, 4):
-        if rand_rotation:
-            piece = rotate_clockwise(piece)
-        for new_x in range(0, max_x - len(piece[0]) + 1):
-            interm_shape_y = 0
-            while not check_collision(board, piece, (new_x, interm_shape_y)):
-                interm_shape_y += 1
-            interm_board = get_interm_board(board, piece, (new_x, interm_shape_y - 1))
-            interm_cost = calculate_simple_cost(interm_board)
-            cost_to_move[interm_cost] = (new_x, interm_shape_y, piece)
-    min_cost = min(cost_to_move.keys())
-    return cost_to_move[min_cost]
-
-
-def calculate_simple_cost(board):
-    """Given a board calculate the cost."""
-    max_x = len(board[0])
-    max_y = len(board)
-    all_heights = []
-    cost = []
-    weights = []
-    height_cost = 15
-    diff_cost = 3
-    max_height_cost = 50
-    hole_cost = 5
-    weights.extend(max_x * [height_cost])
-    weights.extend((max_x - 1) * [diff_cost])
-    weights.append(max_height_cost)
-    weights.append(hole_cost)
-    weights.append(-1)
-
-    # Get the costs based on col height
-    for x_position in range(0, max_x):
-        for y_position in range(0, max_y):
-            if board[y_position][x_position] == -1:
-                cost.append(99999)
-                break
-            elif board[y_position][x_position]:
-                cost.append((25 - y_position)**2)
-                all_heights.append(25-y_position)
-                break
-
-    # Get the costs based on col height differences
-    for ind in range(0, len(cost) - 1):
-        cost.append(abs(cost[ind + 1] - cost[ind]))
-
-    # Add cost for max height
-    cost.append(max(all_heights))
-
-    # Increase costs if holes were created
-    cost.append(find_all_holes(board))
-    cost.append(1)
-    cost_matrix = numpy.matrix([cost])
-    weights_matrix = numpy.matrix([weights])
-    get_cost = cost_matrix*weights_matrix.getH()
-    return get_cost.item(0)
-
-
 def find_all_holes(board):
     """Find all empty holes in board."""
     max_x = len(board[0]) - 1
@@ -160,12 +67,12 @@ def find_all_holes(board):
     total_holes = 0
     for x_position in range(0, max_x):
         for y_position in range(0, max_y):
-            if find_holes_in_board(board, x_position, y_position, max_x, max_y):
+            if _find_holes_in_board(board, x_position, y_position, max_x, max_y):
                 total_holes += 1
     return total_holes
 
 
-def find_holes_in_board(board, x_position, y_position, max_x, max_y):
+def _find_holes_in_board(board, x_position, y_position, max_x, max_y):
     """Looks for a hole at a single spot on the board."""
     found_hole = False
     filled = 0

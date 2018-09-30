@@ -16,6 +16,7 @@ from random import randrange as rand
 
 import pygame
 
+import tetris_dp.tetris_players
 from tetris_dp import constants
 from tetris_dp import helpers
 
@@ -43,6 +44,14 @@ class TetrisApp:
 
         self.font_name = pygame.font.match_font('arial')
 
+    @staticmethod
+    def new_board():
+        """Spawn a new empty board."""
+        board = [[0 for _ in range(constants.CONFIG['cols'])]
+                 for _ in range(constants.CONFIG['rows'])]
+        board += [[1 for _ in range(constants.CONFIG['cols'])]]
+        return board
+
     def draw_text(self, surf, text, size, x_position, y_position):
         """Draw text on the screen."""
         font = pygame.font.Font(self.font_name, size)
@@ -62,7 +71,7 @@ class TetrisApp:
 
     def init_game(self):
         """Start a tetris game with a board and piece."""
-        self.board = helpers.new_board()
+        self.board = self.new_board()
         self.new_piece()
 
     def center_msg(self, msg):
@@ -182,7 +191,7 @@ class TetrisApp:
                     pass
             # self.piece_x, self.piece = get_random_position(
             #   self.board, self.piece, self.piece_x, self.piece_y)
-            self.piece_x, self.piece_y, self.piece = helpers.one_step_lookahead(
+            self.piece_x, self.piece_y, self.piece = tetris_dp.tetris_players.lookahead_player(
                 self.board, self.piece)
             self.drop()
             if not FAST_MODE:
