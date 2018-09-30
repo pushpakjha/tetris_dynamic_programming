@@ -1,54 +1,24 @@
 """Tetris player logic."""
 import copy
-import numpy
 import random
+import numpy
 
-# The configuration
-config = {
-    'cell_size':	20,
-    'cols':		10,
-    'rows':		20,
-    'delay':	750,
-    'maxfps':	30
-}
-
-colors = [(0,   0,   0), (255, 0,   0), (0,   150, 0), (0,   0,   255),
-          (255, 120, 0), (255, 255, 0), (180, 0,   255), (0,   220, 220)]
-
-# Define the shapes of the single parts
-tetris_shapes = [
-    [[1, 1, 1],
-     [0, 1, 0]],
-
-    [[0, 2, 2],
-     [2, 2, 0]],
-
-    [[3, 3, 0],
-     [0, 3, 3]],
-
-    [[4, 0, 0],
-     [4, 4, 4]],
-
-    [[0, 0, 5],
-     [5, 5, 5]],
-
-    [[6, 6, 6, 6]],
-
-    [[7, 7],
-     [7, 7]]
-]
+from tetris_dp.constants import CONFIG
 
 
-def rotate_clockwise(shape):
-    return [[shape[y][x] for y in range(len(shape))] for x in range(len(shape[0]) - 1, -1, -1)]
+def rotate_clockwise(piece):
+    """Rotate the piece clockwise."""
+    return [[piece[y_position][x_position] for y_position in range(len(piece))]
+            for x_position in range(len(piece[0]) - 1, -1, -1)]
 
 
-def check_collision(board, shape, offset):
+def check_collision(board, piece, offset):
+    """Check if the piece, board and given position causes a collision."""
     off_x, off_y = offset
-    for cy, row in enumerate(shape):
-        for cx, cell in enumerate(row):
+    for row_index, row in enumerate(piece):
+        for column_index, cell in enumerate(row):
             try:
-                if cell and board[cy + off_y][cx + off_x]:
+                if cell and board[row_index + off_y][column_index + off_x]:
                     return True
             except IndexError:
                 return True
@@ -56,34 +26,36 @@ def check_collision(board, shape, offset):
 
 
 def remove_row(board, row):
+    """Remove a filled row from the board."""
     del board[row]
-    return [[0 for _ in range(config['cols'])]] + board
+    return [[0 for _ in range(CONFIG['cols'])]] + board
 
 
-def join_matrixes(mat1, mat2, mat2_off):
-    off_x, off_y = mat2_off
-    for cy, row in enumerate(mat2):
-        for cx, val in enumerate(row):
-            mat1[cy + off_y - 1][cx + off_x] += val
-    return mat1
+def add_piece_to_board(board, piece, offset):
+    """Add the piece to the board at the given position."""
+    off_x, off_y = offset
+    for row_index, row in enumerate(piece):
+        for column_index, val in enumerate(row):
+            board[row_index + off_y - 1][column_index + off_x] += val
+    return board
 
 
-def get_interm_board(board, shape, offset):
+def get_interm_board(board, piece, offset):
+    """Add a piece to a deepcopy of the board and return it for cost evaluation.
+
+    Note since some of the out of bounds conditions are weird this function checks to see
+    if pieces will overlap with something on the board. If found it will return -1 at the
+    top of the board for the cost functions to associate it with being an invalid move.
+    """
     off_x, off_y = offset
     interm_board = copy.deepcopy(board)
-    for cy, row in enumerate(shape):
-        # print('cy: {}'.format(cy))
-        # print('row: {}'.format(row))
-        for cx, val in enumerate(row):
-            # print('cx: {}'.format(cx))
-            # print('val: {}'.format(val))
-            y_offset = cy + off_y
-            if interm_board[y_offset][cx + off_x] and val:
-                interm_board[0][cx + off_x] = -1
-                # print('y_offset: {}'.format(y_offset))
-                # print('cx + off_x: {}'.format(cx + off_x))
+    for row_index, row in enumerate(piece):
+        for column_index, val in enumerate(row):
+            y_offset = row_index + off_y
+            if interm_board[y_offset][column_index + off_x] and val:
+                interm_board[0][column_index + off_x] = -1
             else:
-                interm_board[y_offset][cx + off_x] += val
+                interm_board[y_offset][column_index + off_x] += val
     for i, row in enumerate(interm_board[:-1]):
         if 0 not in row:
             interm_board = remove_row(interm_board, i)
@@ -91,50 +63,54 @@ def get_interm_board(board, shape, offset):
 
 
 def new_board():
-    board = [[0 for _ in range(config['cols'])] for _ in range(config['rows'])]
-    board += [[1 for _ in range(config['cols'])]]
+    """Spawn a new empty board."""
+    board = [[0 for _ in range(CONFIG['cols'])] for _ in range(CONFIG['rows'])]
+    board += [[1 for _ in range(CONFIG['cols'])]]
     return board
 
 
-def get_random_position(board, shape, shape_x, shape_y):
+def get_random_position(board, piece, shape_x, shape_y):
+    """Player which returns a random move for a given piece and board."""
     shape_x = shape_x
-    final_shape = shape
+    final_shape = piece
 
     # Get random rotation
     rand_rotation = random.randint(0, 3)
     for _ in range(0, rand_rotation):
-        shape = rotate_clockwise(shape)
-    if not check_collision(board, shape, (shape_x, shape_y)):
-        final_shape = shape
+        piece = rotate_clockwise(piece)
+    if not check_collision(board, piece, (shape_x, shape_y)):
+        final_shape = piece
 
-    # Get random x position
+    # Get random x_position position
     new_x = random.randint(0, 9)
-    if new_x > config['cols'] - len(shape[0]):
-        new_x = config['cols'] - len(shape[0])
-    if not check_collision(board, shape, (new_x, shape_y)):
+    if new_x > CONFIG['cols'] - len(piece[0]):
+        new_x = CONFIG['cols'] - len(piece[0])
+    if not check_collision(board, piece, (new_x, shape_y)):
         shape_x = new_x
     return shape_x, final_shape
 
 
-def one_step_lookahead(board, shape):
+def one_step_lookahead(board, piece):
+    """Player which returns the lowest cost move given the current board and piece."""
     cost_to_move = {}
     max_x = len(board[0])
     # Get random rotation
     for rand_rotation in range(0, 4):
         if rand_rotation:
-            shape = rotate_clockwise(shape)
-        for new_x in range(0, max_x - len(shape[0]) + 1):
+            piece = rotate_clockwise(piece)
+        for new_x in range(0, max_x - len(piece[0]) + 1):
             interm_shape_y = 0
-            while not check_collision(board, shape, (new_x, interm_shape_y)):
+            while not check_collision(board, piece, (new_x, interm_shape_y)):
                 interm_shape_y += 1
-            interm_board = get_interm_board(board, shape, (new_x, interm_shape_y - 1))
+            interm_board = get_interm_board(board, piece, (new_x, interm_shape_y - 1))
             interm_cost = calculate_simple_cost(interm_board)
-            cost_to_move[interm_cost] = (new_x, interm_shape_y, shape)
+            cost_to_move[interm_cost] = (new_x, interm_shape_y, piece)
     min_cost = min(cost_to_move.keys())
     return cost_to_move[min_cost]
 
 
 def calculate_simple_cost(board):
+    """Given a board calculate the cost."""
     max_x = len(board[0])
     max_y = len(board)
     all_heights = []
@@ -151,14 +127,14 @@ def calculate_simple_cost(board):
     weights.append(-1)
 
     # Get the costs based on col height
-    for x in range(0, max_x):
-        for y in range(0, max_y):
-            if board[y][x] == -1:
+    for x_position in range(0, max_x):
+        for y_position in range(0, max_y):
+            if board[y_position][x_position] == -1:
                 cost.append(99999)
                 break
-            elif board[y][x]:
-                cost.append((25 - y)**2)
-                all_heights.append(25-y)
+            elif board[y_position][x_position]:
+                cost.append((25 - y_position)**2)
+                all_heights.append(25-y_position)
                 break
 
     # Get the costs based on col height differences
@@ -178,42 +154,44 @@ def calculate_simple_cost(board):
 
 
 def find_all_holes(board):
+    """Find all empty holes in board."""
     max_x = len(board[0]) - 1
     max_y = len(board) - 1
     total_holes = 0
-    for x in range(0, max_x):
-        for y in range(0, max_y):
-            if find_holes_in_board(board, x, y, max_x, max_y):
+    for x_position in range(0, max_x):
+        for y_position in range(0, max_y):
+            if find_holes_in_board(board, x_position, y_position, max_x, max_y):
                 total_holes += 1
     return total_holes
 
 
-def find_holes_in_board(board, x, y, max_x, max_y):
+def find_holes_in_board(board, x_position, y_position, max_x, max_y):
+    """Looks for a hole at a single spot on the board."""
+    found_hole = False
     filled = 0
-    plus_y = y + 1
-    minus_y = y - 1
+    plus_y = y_position + 1
+    minus_y = y_position - 1
     if plus_y > max_y:
         plus_y = max_y
         filled += 1
     if minus_y < 0:
         minus_y = 0
-    plus_x = x + 1
-    minus_x = x - 1
+    plus_x = x_position + 1
+    minus_x = x_position - 1
     if plus_x > max_x:
         plus_x = max_x
         filled += 1
     if minus_x < 0:
         minus_x = 0
         filled += 1
-    if board[plus_y][x]:
+    if board[plus_y][x_position]:
         filled += 1
-    if board[minus_y][x]:
+    if board[minus_y][x_position]:
         filled += 1
-    if board[y][plus_x]:
+    if board[y_position][plus_x]:
         filled += 1
-    if board[y][minus_x]:
+    if board[y_position][minus_x]:
         filled += 1
-    if filled >= 3 and not board[y][x]:
-        return True
-    else:
-        return False
+    if filled >= 3 and not board[y_position][x_position]:
+        found_hole = True
+    return found_hole

@@ -1,69 +1,72 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""Tetris game with manual and automatic modes.
 
-# Very simple tetris implementation
-# 
-# Control keys:
-# Down - Drop stone faster
-# Left/Right - Move stone
-# Up - Rotate Stone clockwise
-# Escape - Quit game
-# P - Pause game
-#
-# Have fun!
+Control keys for manual mode:
+Down - Drop piece faster
+Left/Right - Move piece
+Up - Rotate Stone clockwise
+Escape - Quit game
+P - Pause game
 
-# Copyright (c) 2010 "Kevin Chabowski"<kevin@kch42.de>, original tetris game
-# Pushpak Jha, added tetris player
-import pygame
+Copyright (c) 2010 "Kevin Chabowski"<kevin@kch42.de>, original tetris game
+Pushpak Jha, added tetris players
+"""
 import sys
 import time
 from random import randrange as rand
 
-from tetris_dp.helpers import *
+import pygame
+
+from tetris_dp import constants
+from tetris_dp import helpers
 
 FAST_MODE = 0
 
 
-class TetrisApp(object):
+class TetrisApp:
+    """The main tetris application."""
     def __init__(self):
-        pygame.init()
+        pygame.init()  # pylint: disable=no-member
         pygame.key.set_repeat(250, 25)
-        self.width = config['cell_size']*config['cols']
-        self.height = config['cell_size']*config['rows']
+        self.width = constants.CONFIG['cell_size']*constants.CONFIG['cols']
+        self.height = constants.CONFIG['cell_size']*constants.CONFIG['rows']
 
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.score = 0
-        self.stone = None
-        self.stone_x = None
-        self.stone_y = None
+        self.piece = None
+        self.piece_x = None
+        self.piece_y = None
         self.gameover = None
         self.board = None
         self.paused = None
-        pygame.event.set_blocked(pygame.MOUSEMOTION)  # Block mouse movement
+        pygame.event.set_blocked(pygame.MOUSEMOTION)  # pylint: disable=no-member
         self.init_game()
 
         self.font_name = pygame.font.match_font('arial')
 
-    def draw_text(self, surf, text, size, x, y):
+    def draw_text(self, surf, text, size, x_position, y_position):
+        """Draw text on the screen."""
         font = pygame.font.Font(self.font_name, size)
         text_surface = font.render(text, True, (255, 255, 255))
         text_rect = text_surface.get_rect()
-        text_rect.midtop = (x, y)
+        text_rect.midtop = (x_position, y_position)
         surf.blit(text_surface, text_rect)
 
-    def new_stone(self):
-        self.stone = tetris_shapes[rand(len(tetris_shapes))]
-        self.stone_x = int(config['cols'] / 2 - len(self.stone[0])/2)
-        self.stone_y = 0
+    def new_piece(self):
+        """Randomly spawn a new piece."""
+        self.piece = constants.TETRIS_SHAPES[rand(len(constants.TETRIS_SHAPES))]
+        self.piece_x = int(constants.CONFIG['cols'] / 2 - len(self.piece[0])/2)
+        self.piece_y = 0
 
-        if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
+        if helpers.check_collision(self.board, self.piece, (self.piece_x, self.piece_y)):
             self.gameover = True
 
     def init_game(self):
-        self.board = new_board()
-        self.new_stone()
+        """Start a tetris game with a board and piece."""
+        self.board = helpers.new_board()
+        self.new_piece()
 
     def center_msg(self, msg):
+        """Helper to add a message on the screen."""
         for i, line in enumerate(msg.splitlines()):
             msg_image = pygame.font.Font(
                 pygame.font.get_default_font(), 12).render(
@@ -73,82 +76,90 @@ class TetrisApp(object):
             msgim_center_x //= 2
             msgim_center_y //= 2
 
-            self.screen.blit(msg_image, (
-              self.width // 2-msgim_center_x,
-              self.height // 2-msgim_center_y+i*22))
+            self.screen.blit(msg_image, (self.width // 2-msgim_center_x,
+                                         self.height // 2-msgim_center_y+i*22))
 
-    def draw_matrix(self, matrix, offset):
+    def draw_matrix(self, board, offset):
+        """Draw the actual board using pygame."""
         off_x, off_y = offset
-        for y, row in enumerate(matrix):
-            for x, val in enumerate(row):
+        for y_position, row in enumerate(board):
+            for x_position, val in enumerate(row):
                 try:
                     if val and not FAST_MODE:
                         pygame.draw.rect(
                             self.screen,
-                            colors[val],
+                            constants.COLORS[val],
                             pygame.Rect(
-                                (off_x+x) * config['cell_size'],
-                                (off_y+y) * config['cell_size'],
-                                config['cell_size'],
-                                config['cell_size']), 0)
+                                (off_x+x_position) * constants.CONFIG['cell_size'],
+                                (off_y+y_position) * constants.CONFIG['cell_size'],
+                                constants.CONFIG['cell_size'],
+                                constants.CONFIG['cell_size']), 0)
                         self.draw_text(self.screen, str(self.score), 18, 170, 10)
                 except IndexError:
                     print('***' * 20)
                     print('YOU SHOULD NOT BE HERE')
                     print(self.board)
-                    print(self.stone)
+                    print(self.piece)
                     print('***' * 20)
                     self.gameover = True
 
     def move(self, delta_x):
+        """For manual play move the piece left or right."""
         if not self.gameover and not self.paused:
-            new_x = self.stone_x + delta_x
+            new_x = self.piece_x + delta_x
             if new_x < 0:
                 new_x = 0
-            if new_x > config['cols'] - len(self.stone[0]):
-                new_x = config['cols'] - len(self.stone[0])
-            if not check_collision(self.board, self.stone, (new_x, self.stone_y)):
-                self.stone_x = new_x
+            if new_x > constants.CONFIG['cols'] - len(self.piece[0]):
+                new_x = constants.CONFIG['cols'] - len(self.piece[0])
+            if not helpers.check_collision(self.board, self.piece, (new_x, self.piece_y)):
+                self.piece_x = new_x
 
     def quit(self):
+        """Quits the game."""
         self.center_msg("Exiting...")
         pygame.display.update()
         sys.exit()
 
     def drop(self):
+        """Drops the piece into place and spawns the next one."""
         if not self.gameover and not self.paused:
-            self.board = join_matrixes(self.board, self.stone, (self.stone_x, self.stone_y))
-            self.new_stone()
+            self.board = helpers.add_piece_to_board(self.board, self.piece,
+                                                    (self.piece_x, self.piece_y))
+            self.new_piece()
             while True:
                 for i, row in enumerate(self.board[:-1]):
                     if 0 not in row:
-                        self.board = remove_row(self.board, i)
+                        self.board = helpers.remove_row(self.board, i)
                         self.score += 1
                         break
                 else:
                     break
 
-    def rotate_stone(self):
+    def rotate_piece(self):
+        """Rotate a piece as long as it won't cause a collision."""
         if not self.gameover and not self.paused:
-            new_stone = rotate_clockwise(self.stone)
-            if not check_collision(self.board,
-                                   new_stone,
-                                   (self.stone_x, self.stone_y)):
-                self.stone = new_stone
+            new_piece = helpers.rotate_clockwise(self.piece)
+            if not helpers.check_collision(self.board,
+                                           new_piece,
+                                           (self.piece_x, self.piece_y)):
+                self.piece = new_piece
 
     def toggle_pause(self):
+        """Pauses the game."""
         self.paused = not self.paused
 
     def start_game(self):
+        """Starts a tetris game."""
         if self.gameover:
             self.init_game()
             self.gameover = False
 
     def run(self):
+        """Main game loop for the automatic playing tetris game."""
         self.gameover = False
         self.paused = False
 
-        pygame.time.set_timer(pygame.USEREVENT+1, config['delay'])
+        pygame.time.set_timer(pygame.USEREVENT+1, constants.CONFIG['delay'])  # pylint: disable=no-member
         pygame_clock = pygame.time.Clock()
         while True:
             self.screen.fill((0, 0, 0))
@@ -162,29 +173,30 @@ class TetrisApp(object):
                     self.center_msg("Paused")
                 else:
                     self.draw_matrix(self.board, (0, 0))
-                    self.draw_matrix(self.stone, (self.stone_x, self.stone_y))
+                    self.draw_matrix(self.piece, (self.piece_x, self.piece_y))
             pygame.display.update()
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+                if event.type == pygame.QUIT:  # pylint: disable=no-member
                     self.quit()
                 else:
                     pass
-            # self.stone_x, self.stone = get_random_position(
-            #   self.board, self.stone, self.stone_x, self.stone_y)
-            self.stone_x, self.stone_y, self.stone = one_step_lookahead(
-                self.board, self.stone)
+            # self.piece_x, self.piece = get_random_position(
+            #   self.board, self.piece, self.piece_x, self.piece_y)
+            self.piece_x, self.piece_y, self.piece = helpers.one_step_lookahead(
+                self.board, self.piece)
             self.drop()
             if not FAST_MODE:
                 time.sleep(0.05)
-            pygame_clock.tick(config['maxfps'])
+            pygame_clock.tick(constants.CONFIG['maxfps'])
 
     def manual_run(self):
+        """Main game loop if you want to play manually with the arrow keys."""
         key_actions = {
             'ESCAPE': self.quit,
             'LEFT': lambda: self.move(-1),
             'RIGHT': lambda: self.move(+1),
             'DOWN': self.manual_drop,
-            'UP': self.rotate_stone,
+            'UP': self.rotate_piece,
             'p': self.toggle_pause,
             'SPACE': self.start_game
         }
@@ -192,7 +204,7 @@ class TetrisApp(object):
         self.gameover = False
         self.paused = False
 
-        pygame.time.set_timer(pygame.USEREVENT + 1, config['delay'])
+        pygame.time.set_timer(pygame.USEREVENT + 1, constants.CONFIG['delay'])  # pylint: disable=no-member
         pygame_clock = pygame.time.Clock()
         while True:
             self.screen.fill((0, 0, 0))
@@ -204,34 +216,40 @@ class TetrisApp(object):
                     self.center_msg("Paused")
                 else:
                     self.draw_matrix(self.board, (0, 0))
-                    self.draw_matrix(self.stone,
-                                     (self.stone_x,
-                                      self.stone_y))
+                    self.draw_matrix(self.piece,
+                                     (self.piece_x,
+                                      self.piece_y))
             if not FAST_MODE:
                 pygame.display.update()
 
             for event in pygame.event.get():
-                if event.type == pygame.USEREVENT + 1:
+                if event.type == pygame.USEREVENT + 1:  # pylint: disable=no-member
                     self.manual_drop()
-                elif event.type == pygame.QUIT:
+                elif event.type == pygame.QUIT:  # pylint: disable=no-member
                     self.quit()
-                elif event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:  # pylint: disable=no-member
                     for key in key_actions:
-                        if event.key == eval("pygame.K_" + key):
+                        if event.key == eval("pygame.K_" + key):  # pylint: disable=eval-used
                             key_actions[key]()
 
-            pygame_clock.tick(config['maxfps'])
+            pygame_clock.tick(constants.CONFIG['maxfps'])
 
     def manual_drop(self):
+        """The drop function when playing manually.
+
+        This slowly drops a piece to animate a falling piece on the board. When using the
+        automatic tetris players we don't care about that so the drop functions are different.
+        """
         if not self.gameover and not self.paused:
-            self.stone_y += 1
-            if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
-                self.board = join_matrixes(self.board, self.stone, (self.stone_x, self.stone_y))
-                self.new_stone()
+            self.piece_y += 1
+            if helpers.check_collision(self.board, self.piece, (self.piece_x, self.piece_y)):
+                self.board = helpers.add_piece_to_board(self.board, self.piece,
+                                                        (self.piece_x, self.piece_y))
+                self.new_piece()
                 while True:
                     for i, row in enumerate(self.board[:-1]):
                         if 0 not in row:
-                            self.board = remove_row(
+                            self.board = helpers.remove_row(
                                 self.board, i)
                             break
                     else:
