@@ -146,9 +146,9 @@ def calculate_simple_cost(board):
     cleared_rows = 0
     height_cost = 15
     diff_cost = 3
-    max_height_cost = 10
+    max_height_cost = 50
     clear_row_cost = -10
-    hole_cost = 0.5
+    hole_cost = 5
     weights.extend(max_x * [height_cost])
     weights.extend((max_x - 1) * [diff_cost])
     # weights.append(clear_row_cost)
@@ -162,7 +162,7 @@ def calculate_simple_cost(board):
                 cost.append(99999)
                 break
             elif board[y][x]:
-                cost.append((25 - y))
+                cost.append((25 - y)**2)
                 all_heights.append(25-y)
                 break
     # Get the costs based on col height differences
@@ -220,7 +220,7 @@ def find_holes_in_board(board, x, y, max_x, max_y):
         filled += 1
     if board[y][minus_x]:
         filled += 1
-    if filled >= 3 and not board[y][x]:
+    if filled >= 2 and not board[y][x]:
         return True
     else:
         return False

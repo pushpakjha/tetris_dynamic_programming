@@ -21,6 +21,8 @@ from random import randrange as rand
 
 from tetris_dp.helpers import *
 
+FAST_MODE = 0
+
 
 class TetrisApp(object):
     def __init__(self):
@@ -71,7 +73,7 @@ class TetrisApp(object):
         for y, row in enumerate(matrix):
             for x, val in enumerate(row):
                 try:
-                    if val:
+                    if val and not FAST_MODE:
                         pygame.draw.rect(
                             self.screen,
                             colors[val],
@@ -80,10 +82,9 @@ class TetrisApp(object):
                                 (off_y+y) * config['cell_size'],
                                 config['cell_size'],
                                 config['cell_size']), 0)
-                    #print(self.board)
-                    #print(self.stone)
                 except IndexError:
                     print('***' * 20)
+                    print('YOU SHOULD NOT BE HERE')
                     print(self.board)
                     print(self.stone)
                     print('***' * 20)
@@ -163,7 +164,8 @@ class TetrisApp(object):
             self.stone_x, self.stone_y, self.stone = one_step_lookahead(
                 self.board, self.stone, self.stone_y)
             self.drop()
-            time.sleep(0.15)
+            if not FAST_MODE:
+                time.sleep(0.15)
             pygame_clock.tick(config['maxfps'])
 
     def manual_run(self):
@@ -182,7 +184,7 @@ class TetrisApp(object):
 
         pygame.time.set_timer(pygame.USEREVENT + 1, config['delay'])
         pygame_clock = pygame.time.Clock()
-        while 1:
+        while True:
             self.screen.fill((0, 0, 0))
             if self.gameover:
                 self.center_msg("""Game Over! Press space to continue""")
@@ -195,7 +197,8 @@ class TetrisApp(object):
                     self.draw_matrix(self.stone,
                                      (self.stone_x,
                                       self.stone_y))
-            pygame.display.update()
+            if not FAST_MODE:
+                pygame.display.update()
 
             for event in pygame.event.get():
                 if event.type == pygame.USEREVENT + 1:
