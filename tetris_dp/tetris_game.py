@@ -80,9 +80,13 @@ class TetrisApp(object):
                                 (off_y+y) * config['cell_size'],
                                 config['cell_size'],
                                 config['cell_size']), 0)
+                    #print(self.board)
+                    #print(self.stone)
                 except IndexError:
+                    print('***' * 20)
                     print(self.board)
                     print(self.stone)
+                    print('***' * 20)
                     self.gameover = True
 
     def move(self, delta_x):
@@ -149,6 +153,11 @@ class TetrisApp(object):
                     self.draw_matrix(self.board, (0, 0))
                     self.draw_matrix(self.stone, (self.stone_x, self.stone_y))
             pygame.display.update()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.quit()
+                else:
+                    pass
             # self.stone_x, self.stone = get_random_position(
             #   self.board, self.stone, self.stone_x, self.stone_y)
             self.stone_x, self.stone_y, self.stone = one_step_lookahead(
