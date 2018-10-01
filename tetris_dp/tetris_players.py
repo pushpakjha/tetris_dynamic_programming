@@ -95,14 +95,14 @@ def _get_costs_of_moves(board, piece):
                 interm_piece_y += 1
             interm_board, removed_rows = helpers.get_interm_board(
                 board, piece, (new_x, interm_piece_y))
-            # interm_cost = _calculate_simple_cost(interm_board)
+            # interm_cost = _calculate_simple_cost(interm_board, removed_rows)
             interm_cost = _calculate_dellacheries_cost(
                 interm_board, removed_rows, (new_x, interm_piece_y))
             cost_to_move[interm_cost] = (new_x, interm_piece_y, piece)
     return cost_to_move
 
 
-def _calculate_simple_cost(board):
+def _calculate_simple_cost(board, removed_rows=0):
     """Given a board calculate the cost."""
     max_x = len(board[0])
     max_y = len(board)
@@ -111,10 +111,12 @@ def _calculate_simple_cost(board):
     diff_cost = 1
     max_height_cost = 20
     hole_cost = 10
+    removed_row_cost = -10
     weights.extend(max_x * [height_cost])
     weights.extend((max_x - 1) * [diff_cost])
     weights.append(max_height_cost)
     weights.append(hole_cost)
+    weights.append(removed_row_cost)
     # Get the costs based on col height
     all_heights, costs = _find_column_heights(board, max_x, max_y)
 
@@ -126,6 +128,8 @@ def _calculate_simple_cost(board):
     costs.append(max(all_heights))
     # Increase costs if holes were created
     costs.append(helpers.find_all_holes(board))
+    # Decrease costs if rows were removed
+    costs.append(removed_rows)
     return _get_cost_from_vectors(costs, weights)
 
 
@@ -147,13 +151,14 @@ def _calculate_dellacheries_cost(board, removed_rows, offset):
     """
     _, off_y = offset
 
-    # Stolen from ref #2 above
-    weights = [4.5001588, -3.4181268, 3.278882, 9.3486953, 7.8992654, 3.3855972]
+    # Original weights stolen from ref #2 above
+    # weights = [4.5001588, -3.4181268, 3.278882, 9.3486953, 7.8992654, 3.3855972]
+    weights = [6.5001588, -5.4181268, 3.278882, 9.3486953, 7.8992654, 5.3855972]
     costs = []
 
     # Add to costs
     # Rule 1
-    costs.append(21 - off_y)
+    costs.append(constants.CONFIG['rows'] + 1 - off_y)
     # Rule 2
     costs.append(removed_rows**4)
     # Rule 3
@@ -190,7 +195,7 @@ def _find_column_heights(board, max_x, max_y):
                 all_heights.append(99)
                 break
             elif board[y_position][x_position]:
-                cost.append((20 - y_position)**2)
-                all_heights.append(20-y_position)
+                cost.append((21 - y_position)**2)
+                all_heights.append(21 - y_position)
                 break
     return all_heights, cost

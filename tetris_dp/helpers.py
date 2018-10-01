@@ -64,7 +64,7 @@ def get_interm_board(board, piece, offset):
 
 def find_all_holes(board):
     """Find all empty holes in board."""
-    max_x = len(board[0])
+    max_x = len(board[0]) - 1
     max_y = len(board) - 1
     total_holes = 0
     for x_position in range(0, max_x):
@@ -106,7 +106,7 @@ def _find_holes_in_board(board, x_position, y_position, max_x, max_y):
     return found_hole
 
 
-def find_holes_and_wells(board):
+def find_holes_and_wells(board):  # pylint: disable=too-many-branches
     """Find number of empty cells with one covered cell above it."""
     max_x = len(board[0])
     max_y = len(board)
