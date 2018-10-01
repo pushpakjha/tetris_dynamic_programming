@@ -1,6 +1,6 @@
 """Various automatic tetris players."""
 import random
-
+from multiprocessing.pool import ThreadPool
 import numpy
 
 from tetris_dp import constants
@@ -20,7 +20,7 @@ def random_player(board, piece, shape_x, shape_y):
         final_shape = piece
 
     # Get random x_position position
-    new_x = random.randint(0, 9)
+    new_x = random.randint(0, constants.CONFIG['cols'])
     if new_x > constants.CONFIG['cols'] - len(piece[0]):
         new_x = constants.CONFIG['cols'] - len(piece[0])
     if not helpers.check_collision(board, piece, (new_x, shape_y)):
@@ -38,27 +38,6 @@ def lookahead_player(board, piece):
     return final_adjusted_costs[min_future_cost]
 
 
-def simulate_stages(sorted_costs, cost_to_move, board):
-    """Simulate the next few moves of the game and get future costs."""
-    final_adjusted_costs = {}
-    for cost in sorted_costs[:3]:
-        cur_x, cur_y, cur_piece = cost_to_move[cost]
-        future_costs = []
-        for _ in range(0, 5):
-            interm_board = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
-            for _ in range(0, 3):
-                rand_piece = random.choice(constants.TETRIS_SHAPES)
-                best_x, best_y, best_piece = single_stage_player(interm_board, rand_piece)
-                interm_board = helpers.add_piece_to_board(
-                    interm_board, best_piece, (best_x, best_y))
-            future_cost = calculate_simple_cost(interm_board)
-            future_costs.append(future_cost)
-        expected_future_cost = sum(future_costs)/len(future_costs)/3
-        final_cost = str(cost + expected_future_cost)
-        final_adjusted_costs[final_cost] = cost_to_move[cost]
-    return final_adjusted_costs
-
-
 def single_stage_player(board, piece):
     """Player which returns the lowest cost move given the current board and piece."""
     cost_to_move = get_costs_of_moves(board, piece)
@@ -66,11 +45,47 @@ def single_stage_player(board, piece):
     return cost_to_move[min_cost]
 
 
+def simulate_stages(sorted_costs, cost_to_move, board):
+    """Simulate the next few moves of the game and get future costs."""
+    pool = ThreadPool(processes=4)
+    final_adjusted_costs = {}
+    results = []
+    for cost in sorted_costs[:8]:
+        results.append(pool.apply_async(simulate_stage_threaded, args=(board, cost_to_move, cost)))
+    pool.close()
+    pool.join()
+    results = [r.get() for r in results]
+    for adjusted_cost in results:
+        final_adjusted_costs.update(adjusted_cost)
+    return final_adjusted_costs
+
+
+def simulate_stage_threaded(board, cost_to_move, cost):
+    """Simulate the next few moves of the game for a given cost."""
+    cur_x, cur_y, cur_piece = cost_to_move[cost]
+    future_costs = []
+    adjusted_costs = {}
+    for _ in range(0, 1):
+        interm_board = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
+        future_cost = 0
+        for _ in range(0, 4):
+            rand_piece = random.choice(constants.TETRIS_SHAPES)
+            best_x, best_y, best_piece = single_stage_player(interm_board, rand_piece)
+            interm_board = helpers.add_piece_to_board(
+                interm_board, best_piece, (best_x, best_y))
+            future_cost += calculate_simple_cost(interm_board) / 4
+        future_costs.append(future_cost)
+    expected_future_cost = sum(future_costs) / len(future_costs)
+    final_cost = cost + expected_future_cost
+    adjusted_costs[final_cost] = cost_to_move[cost]
+    return adjusted_costs
+
+
 def get_costs_of_moves(board, piece):
     """Get the costs of all the moves given a board and piece."""
     cost_to_move = {}
     max_x = len(board[0])
-    # Get random rotation
+
     for rand_rotation in range(0, 4):
         if rand_rotation:
             piece = helpers.rotate_clockwise(piece)
@@ -88,29 +103,18 @@ def calculate_simple_cost(board):
     """Given a board calculate the cost."""
     max_x = len(board[0])
     max_y = len(board)
-    all_heights = []
-    cost = []
     weights = []
     height_cost = 15
     diff_cost = 3
     max_height_cost = 50
-    hole_cost = 5
+    hole_cost = 50
     weights.extend(max_x * [height_cost])
     weights.extend((max_x - 1) * [diff_cost])
     weights.append(max_height_cost)
-    weights.append(hole_cost)
-    weights.append(-1)
+    # weights.append(hole_cost)
 
     # Get the costs based on col height
-    for x_position in range(0, max_x):
-        for y_position in range(0, max_y):
-            if board[y_position][x_position] == -1:
-                cost.append(99999)
-                break
-            elif board[y_position][x_position]:
-                cost.append((25 - y_position)**2)
-                all_heights.append(25-y_position)
-                break
+    all_heights, cost = find_column_heights(board, max_x, max_y)
 
     # Get the costs based on col height differences
     for ind in range(0, len(cost) - 1):
@@ -120,9 +124,31 @@ def calculate_simple_cost(board):
     cost.append(max(all_heights))
 
     # Increase costs if holes were created
-    cost.append(helpers.find_all_holes(board))
-    cost.append(1)
+    # cost.append(helpers.find_all_holes(board))
+    return get_cost_from_vectors(cost, weights)
+
+
+def get_cost_from_vectors(cost, weights):
+    """Use matrix math to get a scalar cost."""
     cost_matrix = numpy.matrix([cost])
     weights_matrix = numpy.matrix([weights])
-    get_cost = cost_matrix*weights_matrix.getH()
+    get_cost = cost_matrix * weights_matrix.getH()  # transpose
     return get_cost.item(0)
+
+
+def find_column_heights(board, max_x, max_y):
+    """Find the column heights on the board."""
+    all_heights = []
+    cost = []
+
+    for x_position in range(0, max_x):
+        for y_position in range(0, max_y):
+            if board[y_position][x_position] == -1:
+                cost.append(99999)
+                all_heights.append(99)
+                break
+            elif board[y_position][x_position]:
+                cost.append((21 - y_position)**2)
+                all_heights.append(21-y_position)
+                break
+    return all_heights, cost

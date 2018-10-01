@@ -1,7 +1,5 @@
 """Tetris player logic."""
-import copy
-
-from tetris_dp.constants import CONFIG
+from tetris_dp import constants
 
 
 def rotate_clockwise(piece):
@@ -26,7 +24,7 @@ def check_collision(board, piece, offset):
 def remove_row(board, row):
     """Remove a filled row from the board."""
     del board[row]
-    return [[0 for _ in range(CONFIG['cols'])]] + board
+    return [[0 for _ in range(constants.CONFIG['cols'])]] + board
 
 
 def add_piece_to_board(board, piece, offset):
@@ -46,7 +44,9 @@ def get_interm_board(board, piece, offset):
     top of the board for the cost functions to associate it with being an invalid move.
     """
     off_x, off_y = offset
-    interm_board = copy.deepcopy(board)
+    interm_board = [[board[y][x] for x in range(constants.CONFIG['cols'])]
+                    for y in range(constants.CONFIG['rows'])]
+    interm_board += [[1 for _ in range(constants.CONFIG['cols'])]]
     for row_index, row in enumerate(piece):
         for column_index, val in enumerate(row):
             y_offset = row_index + off_y - 1

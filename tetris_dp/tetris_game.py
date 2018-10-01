@@ -26,12 +26,6 @@ FAST_MODE = 0
 class TetrisApp:
     """The main tetris application."""
     def __init__(self):
-        pygame.init()  # pylint: disable=no-member
-        pygame.key.set_repeat(250, 25)
-        self.width = constants.CONFIG['cell_size']*constants.CONFIG['cols']
-        self.height = constants.CONFIG['cell_size']*constants.CONFIG['rows']
-
-        self.screen = pygame.display.set_mode((self.width, self.height))
         self.score = 0
         self.piece = None
         self.piece_x = None
@@ -39,10 +33,17 @@ class TetrisApp:
         self.gameover = None
         self.board = None
         self.paused = None
-        pygame.event.set_blocked(pygame.MOUSEMOTION)  # pylint: disable=no-member
         self.init_game()
+        if not FAST_MODE:
+            pygame.init()  # pylint: disable=no-member
+            pygame.key.set_repeat(250, 25)
+            self.width = constants.CONFIG['cell_size']*constants.CONFIG['cols']
+            self.height = constants.CONFIG['cell_size']*constants.CONFIG['rows']
 
-        self.font_name = pygame.font.match_font('arial')
+            self.screen = pygame.display.set_mode((self.width, self.height))
+
+            pygame.event.set_blocked(pygame.MOUSEMOTION)  # pylint: disable=no-member
+            self.font_name = pygame.font.match_font('arial')
 
     @staticmethod
     def new_board():
@@ -94,7 +95,7 @@ class TetrisApp:
         for y_position, row in enumerate(board):
             for x_position, val in enumerate(row):
                 try:
-                    if val and not FAST_MODE:
+                    if val:
                         pygame.draw.rect(
                             self.screen,
                             constants.COLORS[val],
@@ -163,40 +164,47 @@ class TetrisApp:
             self.init_game()
             self.gameover = False
 
-    def run(self):
+    def run(self):  # pylint: disable=too-many-branches
         """Main game loop for the automatic playing tetris game."""
         self.gameover = False
         self.paused = False
 
-        pygame.time.set_timer(pygame.USEREVENT+1, constants.CONFIG['delay'])  # pylint: disable=no-member
-        pygame_clock = pygame.time.Clock()
+        if not FAST_MODE:
+            pygame.time.set_timer(pygame.USEREVENT+1, constants.CONFIG['delay'])  # pylint: disable=no-member
+            pygame_clock = pygame.time.Clock()
         while True:
-            self.screen.fill((0, 0, 0))
+            if not FAST_MODE:
+                self.screen.fill((0, 0, 0))
             if self.gameover:
-                self.center_msg("""Game Over! Press space to continue""")
-                print('Final Score: {}'.format(self.score))
-                time.sleep(1)
-                self.quit()
-            else:
-                if self.paused:
-                    self.center_msg("Paused")
-                else:
-                    self.draw_matrix(self.board, (0, 0))
-                    self.draw_matrix(self.piece, (self.piece_x, self.piece_y))
-            pygame.display.update()
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:  # pylint: disable=no-member
+                if not FAST_MODE:
+                    self.center_msg("""Game Over! Press space to continue""")
+                    print('Final Score: {}'.format(self.score))
+                    time.sleep(1)
                     self.quit()
                 else:
-                    pass
+                    return self.score
+            else:
+                if not FAST_MODE:
+                    if self.paused:
+                        self.center_msg("Paused")
+                    else:
+                        self.draw_matrix(self.board, (0, 0))
+                        self.draw_matrix(self.piece, (self.piece_x, self.piece_y))
+            if not FAST_MODE:
+                pygame.display.update()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:  # pylint: disable=no-member
+                        self.quit()
+                    else:
+                        pass
             # self.piece_x, self.piece = get_random_position(
             #   self.board, self.piece, self.piece_x, self.piece_y)
             self.piece_x, self.piece_y, self.piece = tetris_dp.tetris_players.lookahead_player(
                 self.board, self.piece)
             self.drop()
             if not FAST_MODE:
-                time.sleep(0.05)
-            pygame_clock.tick(constants.CONFIG['maxfps'])
+                # time.sleep(0.1)
+                pygame_clock.tick(constants.CONFIG['maxfps'])
 
     def manual_run(self):
         """Main game loop if you want to play manually with the arrow keys."""
