@@ -44,6 +44,7 @@ def get_interm_board(board, piece, offset):
     top of the board for the cost functions to associate it with being an invalid move.
     """
     off_x, off_y = offset
+    removed_rows = 0
     interm_board = [[board[y][x] for x in range(constants.CONFIG['cols'])]
                     for y in range(constants.CONFIG['rows'])]
     interm_board += [[1 for _ in range(constants.CONFIG['cols'])]]
@@ -57,12 +58,13 @@ def get_interm_board(board, piece, offset):
     for i, row in enumerate(interm_board[:-1]):
         if 0 not in row:
             interm_board = remove_row(interm_board, i)
-    return interm_board
+            removed_rows += 1
+    return interm_board, removed_rows
 
 
 def find_all_holes(board):
     """Find all empty holes in board."""
-    max_x = len(board[0]) - 1
+    max_x = len(board[0])
     max_y = len(board) - 1
     total_holes = 0
     for x_position in range(0, max_x):
@@ -102,3 +104,55 @@ def _find_holes_in_board(board, x_position, y_position, max_x, max_y):
     if filled >= 3 and not board[y_position][x_position]:
         found_hole = True
     return found_hole
+
+
+def find_holes_and_wells(board):
+    """Find number of empty cells with one covered cell above it."""
+    max_x = len(board[0])
+    max_y = len(board)
+    total_holes = 0
+    total_wells = 0
+    row_transitions = 0
+    for x_position in range(0, max_x):
+        for y_position in range(0, max_y):
+            y_above = y_position - 1
+            filled = 0
+            x_offset = min(x_position + 1, max_x - 1)
+            if y_above < 0:
+                y_above = 0
+            plus_x = x_position + 1
+            minus_x = x_position - 1
+            if plus_x > max_x - 1:
+                plus_x = max_x - 1
+                filled += 1
+            if minus_x < 0:
+                minus_x = 0
+                filled += 1
+            if not board[y_position][x_position] and board[y_above][x_position]:
+                total_holes += 1
+            if not board[y_position][x_position] and board[y_position][plus_x]:
+                filled += 1
+            if not board[y_position][x_position] and board[y_position][minus_x]:
+                filled += 1
+            if filled >= 2:
+                total_wells += 1
+            if board[y_position][x_position] and not board[y_position][x_offset]:
+                row_transitions += 1
+            if not board[y_position][x_position] and board[y_position][x_offset]:
+                row_transitions += 1
+    return total_holes, total_wells, row_transitions
+
+
+def find_column_transitions(board):
+    """Number of horizontal full to empty or empty to full transitions on the board."""
+    max_x = len(board[0])
+    max_y = len(board)
+    column_transitions = 0
+    for x_position in range(0, max_x):
+        for y_position in range(0, max_y - 1):
+            y_offset = min(y_position + 1, max_y - 1)
+            if board[y_position][x_position] and not board[y_offset][x_position]:
+                column_transitions += 1
+            if not board[y_position][x_position] and board[y_offset][x_position]:
+                column_transitions += 1
+    return column_transitions

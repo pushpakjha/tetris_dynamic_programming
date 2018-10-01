@@ -201,7 +201,7 @@ class TetrisApp:
                 self.board, self.piece)
             self.drop()
             if not FAST_MODE:
-                # time.sleep(0.1)
+                time.sleep(0.1)
                 pygame_clock.tick(constants.CONFIG['maxfps'])
 
     def manual_run(self):

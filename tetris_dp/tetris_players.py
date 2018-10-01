@@ -47,10 +47,10 @@ def lookahead_player(board, piece):
 
 def _simulate_stages(sorted_costs, cost_to_move, board):
     """Simulate the next few moves of the game and get future costs."""
-    pool = ThreadPool(processes=8)
+    pool = ThreadPool(processes=4)
     final_adjusted_costs = {}
     results = []
-    for cost in sorted_costs[:8]:
+    for cost in sorted_costs[:4]:
         results.append(pool.apply_async(_simulate_stage_threaded, args=(board, cost_to_move, cost)))
     pool.close()
     pool.join()
@@ -66,7 +66,7 @@ def _simulate_stage_threaded(board, cost_to_move, cost):
     future_costs = []
     adjusted_costs = {}
     for _ in range(0, 3):
-        interm_board = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
+        interm_board, _ = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
         future_cost = 0
         for _ in range(0, 4):
             rand_piece = random.choice(constants.TETRIS_SHAPES)
@@ -93,8 +93,11 @@ def _get_costs_of_moves(board, piece):
             interm_piece_y = 0
             while not helpers.check_collision(board, piece, (new_x, interm_piece_y)):
                 interm_piece_y += 1
-            interm_board = helpers.get_interm_board(board, piece, (new_x, interm_piece_y))
-            interm_cost = _calculate_simple_cost(interm_board)
+            interm_board, removed_rows = helpers.get_interm_board(
+                board, piece, (new_x, interm_piece_y))
+            # interm_cost = _calculate_simple_cost(interm_board)
+            interm_cost = _calculate_dellacheries_cost(
+                interm_board, removed_rows, (new_x, interm_piece_y))
             cost_to_move[interm_cost] = (new_x, interm_piece_y, piece)
     return cost_to_move
 
@@ -105,27 +108,71 @@ def _calculate_simple_cost(board):
     max_y = len(board)
     weights = []
     height_cost = 15
-    diff_cost = 3
-    max_height_cost = 50
-    hole_cost = 50
+    diff_cost = 1
+    max_height_cost = 20
+    hole_cost = 10
     weights.extend(max_x * [height_cost])
     weights.extend((max_x - 1) * [diff_cost])
     weights.append(max_height_cost)
     weights.append(hole_cost)
-
     # Get the costs based on col height
-    all_heights, cost = _find_column_heights(board, max_x, max_y)
+    all_heights, costs = _find_column_heights(board, max_x, max_y)
 
     # Get the costs based on col height differences
-    for ind in range(0, len(cost) - 1):
-        cost.append(abs(cost[ind + 1] - cost[ind]))
+    for ind in range(0, len(costs) - 1):
+        costs.append(abs(costs[ind + 1] - costs[ind]))
 
-    # Add cost for max height
-    cost.append(max(all_heights))
-
+    # Add costs for max height
+    costs.append(max(all_heights))
     # Increase costs if holes were created
-    cost.append(helpers.find_all_holes(board))
-    return _get_cost_from_vectors(cost, weights)
+    costs.append(helpers.find_all_holes(board))
+    return _get_cost_from_vectors(costs, weights)
+
+
+def _calculate_dellacheries_cost(board, removed_rows, offset):
+    """Given a board calculate the cost using Dellacherie's criteria.
+
+    See https://hal.inria.fr/hal-00926213/document
+    See https://pdfs.semanticscholar.org/2d0d/eb544439e96f9f84fe1afc653bbf2f3bcc96.pdf
+    See https://hal.inria.fr/inria-00418930/document
+    (f1) Landing height: The height at which the current piece fell.
+    (f2) Eroded pieces: The contribution of the last piece to the cleared lines time the number
+     of cleared lines.
+    (f3) Row transitions: Number of filled cells adjacent to empty cells
+     summed over all rows.
+    (f4) Column transition: Same as (f3) summed over all columns.
+     Note that borders count as filled cells.
+    (f5) Number of holes: The number of empty cells with at least one filled cell above.
+    (f6) Cumulative wells: The sum of the accumulated depths of the wells.
+    """
+    _, off_y = offset
+    # Stolen from one of the links above
+    weights = [4.5001588, -3.4181268, 3.278882, 9.3486953, 7.8992654, 3.3855972]
+    costs = []
+
+    # Add to costs
+    # Rule 1
+    costs.append(21 - off_y)
+
+    # Rule 2
+    costs.append(removed_rows**4)
+
+    # Rule 3
+    num_holes, num_wells, row_transitions = helpers.find_holes_and_wells(board)
+    costs.append(row_transitions)
+
+    # Rule 4
+    col_transitions = helpers.find_column_transitions(board)
+    costs.append(col_transitions)
+
+    # Rule 5
+    costs.append(num_holes)
+
+    # Rule 6
+    costs.append(num_wells)
+
+    # Get the final cost
+    return _get_cost_from_vectors(costs, weights)
 
 
 def _get_cost_from_vectors(cost, weights):
@@ -148,7 +195,7 @@ def _find_column_heights(board, max_x, max_y):
                 all_heights.append(99)
                 break
             elif board[y_position][x_position]:
-                cost.append((21 - y_position)**2)
-                all_heights.append(21-y_position)
+                cost.append((20 - y_position)**2)
+                all_heights.append(20-y_position)
                 break
     return all_heights, cost
