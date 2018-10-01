@@ -97,7 +97,7 @@ def _get_costs_of_moves(board, piece):
                 board, piece, (new_x, interm_piece_y))
             # interm_cost = _calculate_simple_cost(interm_board, removed_rows)
             interm_cost = _calculate_dellacheries_cost(
-                interm_board, removed_rows, (new_x, interm_piece_y))
+               interm_board, removed_rows, (new_x, interm_piece_y))
             cost_to_move[interm_cost] = (new_x, interm_piece_y, piece)
     return cost_to_move
 

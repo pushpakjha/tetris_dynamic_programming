@@ -104,7 +104,9 @@ class TetrisApp:
                                 (off_y+y_position) * constants.CONFIG['cell_size'],
                                 constants.CONFIG['cell_size'],
                                 constants.CONFIG['cell_size']), 0)
-                        self.draw_text(self.screen, str(self.score), 18, 170, 10)
+                        self.draw_text(self.screen, str(self.score), 18,
+                                       constants.CONFIG['cell_size'] * constants.CONFIG['rows'] / 20,
+                                       10)
                 except IndexError:
                     print('***' * 20)
                     print('YOU SHOULD NOT BE HERE')

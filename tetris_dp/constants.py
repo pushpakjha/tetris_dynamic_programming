@@ -1,7 +1,7 @@
 """Constants."""
 
 CONFIG = {
-    'cell_size': 20,
+    'cell_size': 30,
     'cols':		 10,
     'rows':		 20,
     'delay':	 750,
