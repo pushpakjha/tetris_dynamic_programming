@@ -16,9 +16,9 @@ from random import randrange as rand
 
 import pygame
 
-import tetris_dp.tetris_players
 from tetris_dp import constants
 from tetris_dp import helpers
+from tetris_dp import tetris_players
 
 FAST_MODE = 0
 
@@ -197,9 +197,7 @@ class TetrisApp:
                         self.quit()
                     else:
                         pass
-            # self.piece_x, self.piece = get_random_position(
-            #   self.board, self.piece, self.piece_x, self.piece_y)
-            self.piece_x, self.piece_y, self.piece = tetris_dp.tetris_players.lookahead_player(
+            self.piece_x, self.piece_y, self.piece = tetris_players.single_stage_player(
                 self.board, self.piece)
             self.drop()
             if not FAST_MODE:

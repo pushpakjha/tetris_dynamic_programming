@@ -28,30 +28,30 @@ def random_player(board, piece, shape_x, shape_y):
     return shape_x, final_shape
 
 
-def lookahead_player(board, piece):
-    """Player which returns the lowest cost move by evaluating multiple stage lookaheads."""
-    cost_to_move = get_costs_of_moves(board, piece)
-    sorted_costs = list(cost_to_move.keys())
-    sorted_costs.sort()
-    final_adjusted_costs = simulate_stages(sorted_costs, cost_to_move, board)
-    min_future_cost = min(final_adjusted_costs.keys())
-    return final_adjusted_costs[min_future_cost]
-
-
 def single_stage_player(board, piece):
     """Player which returns the lowest cost move given the current board and piece."""
-    cost_to_move = get_costs_of_moves(board, piece)
+    cost_to_move = _get_costs_of_moves(board, piece)
     min_cost = min(cost_to_move.keys())
     return cost_to_move[min_cost]
 
 
-def simulate_stages(sorted_costs, cost_to_move, board):
+def lookahead_player(board, piece):
+    """Player which returns the lowest cost move by evaluating multiple stage lookaheads."""
+    cost_to_move = _get_costs_of_moves(board, piece)
+    sorted_costs = list(cost_to_move.keys())
+    sorted_costs.sort()
+    final_adjusted_costs = _simulate_stages(sorted_costs, cost_to_move, board)
+    min_future_cost = min(final_adjusted_costs.keys())
+    return final_adjusted_costs[min_future_cost]
+
+
+def _simulate_stages(sorted_costs, cost_to_move, board):
     """Simulate the next few moves of the game and get future costs."""
-    pool = ThreadPool(processes=4)
+    pool = ThreadPool(processes=8)
     final_adjusted_costs = {}
     results = []
     for cost in sorted_costs[:8]:
-        results.append(pool.apply_async(simulate_stage_threaded, args=(board, cost_to_move, cost)))
+        results.append(pool.apply_async(_simulate_stage_threaded, args=(board, cost_to_move, cost)))
     pool.close()
     pool.join()
     results = [r.get() for r in results]
@@ -60,12 +60,12 @@ def simulate_stages(sorted_costs, cost_to_move, board):
     return final_adjusted_costs
 
 
-def simulate_stage_threaded(board, cost_to_move, cost):
+def _simulate_stage_threaded(board, cost_to_move, cost):
     """Simulate the next few moves of the game for a given cost."""
     cur_x, cur_y, cur_piece = cost_to_move[cost]
     future_costs = []
     adjusted_costs = {}
-    for _ in range(0, 1):
+    for _ in range(0, 3):
         interm_board = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
         future_cost = 0
         for _ in range(0, 4):
@@ -73,7 +73,7 @@ def simulate_stage_threaded(board, cost_to_move, cost):
             best_x, best_y, best_piece = single_stage_player(interm_board, rand_piece)
             interm_board = helpers.add_piece_to_board(
                 interm_board, best_piece, (best_x, best_y))
-            future_cost += calculate_simple_cost(interm_board) / 4
+            future_cost += _calculate_simple_cost(interm_board) / 4
         future_costs.append(future_cost)
     expected_future_cost = sum(future_costs) / len(future_costs)
     final_cost = cost + expected_future_cost
@@ -81,7 +81,7 @@ def simulate_stage_threaded(board, cost_to_move, cost):
     return adjusted_costs
 
 
-def get_costs_of_moves(board, piece):
+def _get_costs_of_moves(board, piece):
     """Get the costs of all the moves given a board and piece."""
     cost_to_move = {}
     max_x = len(board[0])
@@ -94,12 +94,12 @@ def get_costs_of_moves(board, piece):
             while not helpers.check_collision(board, piece, (new_x, interm_piece_y)):
                 interm_piece_y += 1
             interm_board = helpers.get_interm_board(board, piece, (new_x, interm_piece_y))
-            interm_cost = calculate_simple_cost(interm_board)
+            interm_cost = _calculate_simple_cost(interm_board)
             cost_to_move[interm_cost] = (new_x, interm_piece_y, piece)
     return cost_to_move
 
 
-def calculate_simple_cost(board):
+def _calculate_simple_cost(board):
     """Given a board calculate the cost."""
     max_x = len(board[0])
     max_y = len(board)
@@ -111,10 +111,10 @@ def calculate_simple_cost(board):
     weights.extend(max_x * [height_cost])
     weights.extend((max_x - 1) * [diff_cost])
     weights.append(max_height_cost)
-    # weights.append(hole_cost)
+    weights.append(hole_cost)
 
     # Get the costs based on col height
-    all_heights, cost = find_column_heights(board, max_x, max_y)
+    all_heights, cost = _find_column_heights(board, max_x, max_y)
 
     # Get the costs based on col height differences
     for ind in range(0, len(cost) - 1):
@@ -124,11 +124,11 @@ def calculate_simple_cost(board):
     cost.append(max(all_heights))
 
     # Increase costs if holes were created
-    # cost.append(helpers.find_all_holes(board))
-    return get_cost_from_vectors(cost, weights)
+    cost.append(helpers.find_all_holes(board))
+    return _get_cost_from_vectors(cost, weights)
 
 
-def get_cost_from_vectors(cost, weights):
+def _get_cost_from_vectors(cost, weights):
     """Use matrix math to get a scalar cost."""
     cost_matrix = numpy.matrix([cost])
     weights_matrix = numpy.matrix([weights])
@@ -136,7 +136,7 @@ def get_cost_from_vectors(cost, weights):
     return get_cost.item(0)
 
 
-def find_column_heights(board, max_x, max_y):
+def _find_column_heights(board, max_x, max_y):
     """Find the column heights on the board."""
     all_heights = []
     cost = []
