@@ -65,15 +65,15 @@ def _simulate_stage_threaded(board, cost_to_move, cost):
     cur_x, cur_y, cur_piece = cost_to_move[cost]
     future_costs = []
     adjusted_costs = {}
-    for _ in range(0, 3):
+    for _ in range(0, 1):
         interm_board, _ = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
         future_cost = 0
-        for _ in range(0, 4):
+        for _ in range(0, 1):
             rand_piece = random.choice(constants.TETRIS_SHAPES)
             best_x, best_y, best_piece = single_stage_player(interm_board, rand_piece)
             interm_board = helpers.add_piece_to_board(
                 interm_board, best_piece, (best_x, best_y))
-            future_cost += _calculate_simple_cost(interm_board) / 4
+            future_cost += _calculate_simple_cost(interm_board) / 1
         future_costs.append(future_cost)
     expected_future_cost = sum(future_costs) / len(future_costs)
     final_cost = cost + expected_future_cost
@@ -132,9 +132,9 @@ def _calculate_simple_cost(board):
 def _calculate_dellacheries_cost(board, removed_rows, offset):
     """Given a board calculate the cost using Dellacherie's criteria.
 
-    See https://hal.inria.fr/hal-00926213/document
-    See https://pdfs.semanticscholar.org/2d0d/eb544439e96f9f84fe1afc653bbf2f3bcc96.pdf
-    See https://hal.inria.fr/inria-00418930/document
+    See ref #1 https://hal.inria.fr/hal-00926213/document
+    See ref #2 https://pdfs.semanticscholar.org/2d0d/eb544439e96f9f84fe1afc653bbf2f3bcc96.pdf
+    See ref #3 https://hal.inria.fr/inria-00418930/document
     (f1) Landing height: The height at which the current piece fell.
     (f2) Eroded pieces: The contribution of the last piece to the cleared lines time the number
      of cleared lines.
@@ -146,28 +146,23 @@ def _calculate_dellacheries_cost(board, removed_rows, offset):
     (f6) Cumulative wells: The sum of the accumulated depths of the wells.
     """
     _, off_y = offset
-    # Stolen from one of the links above
+
+    # Stolen from ref #2 above
     weights = [4.5001588, -3.4181268, 3.278882, 9.3486953, 7.8992654, 3.3855972]
     costs = []
 
     # Add to costs
     # Rule 1
     costs.append(21 - off_y)
-
     # Rule 2
     costs.append(removed_rows**4)
-
     # Rule 3
-    num_holes, num_wells, row_transitions = helpers.find_holes_and_wells(board)
+    num_holes, num_wells, row_transitions, col_transitions = helpers.find_holes_and_wells(board)
     costs.append(row_transitions)
-
     # Rule 4
-    col_transitions = helpers.find_column_transitions(board)
     costs.append(col_transitions)
-
     # Rule 5
     costs.append(num_holes)
-
     # Rule 6
     costs.append(num_wells)
 

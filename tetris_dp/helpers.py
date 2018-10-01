@@ -113,11 +113,13 @@ def find_holes_and_wells(board):
     total_holes = 0
     total_wells = 0
     row_transitions = 0
+    column_transitions = 0
     for x_position in range(0, max_x):
         for y_position in range(0, max_y):
             y_above = y_position - 1
             filled = 0
             x_offset = min(x_position + 1, max_x - 1)
+            y_offset = min(y_position + 1, max_y - 1)
             if y_above < 0:
                 y_above = 0
             plus_x = x_position + 1
@@ -140,19 +142,8 @@ def find_holes_and_wells(board):
                 row_transitions += 1
             if not board[y_position][x_position] and board[y_position][x_offset]:
                 row_transitions += 1
-    return total_holes, total_wells, row_transitions
-
-
-def find_column_transitions(board):
-    """Number of horizontal full to empty or empty to full transitions on the board."""
-    max_x = len(board[0])
-    max_y = len(board)
-    column_transitions = 0
-    for x_position in range(0, max_x):
-        for y_position in range(0, max_y - 1):
-            y_offset = min(y_position + 1, max_y - 1)
             if board[y_position][x_position] and not board[y_offset][x_position]:
                 column_transitions += 1
             if not board[y_position][x_position] and board[y_offset][x_position]:
                 column_transitions += 1
-    return column_transitions
+    return total_holes, total_wells, row_transitions, column_transitions
