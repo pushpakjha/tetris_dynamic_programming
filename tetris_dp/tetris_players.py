@@ -66,14 +66,16 @@ def _simulate_stage_threaded(board, cost_to_move, cost):
     future_costs = []
     adjusted_costs = {}
     for _ in range(0, 1):
-        interm_board, _ = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
+        interm_board, removed_rows = helpers.get_interm_board(board, cur_piece, (cur_x, cur_y))
         future_cost = 0
         for _ in range(0, 1):
             rand_piece = random.choice(constants.TETRIS_SHAPES)
             best_x, best_y, best_piece = single_stage_player(interm_board, rand_piece)
             interm_board = helpers.add_piece_to_board(
                 interm_board, best_piece, (best_x, best_y))
-            future_cost += _calculate_simple_cost(interm_board) / 1
+            # future_cost += _calculate_simple_cost(interm_board) / 1
+            future_cost += _calculate_dellacheries_cost(
+                interm_board, removed_rows, (best_x, best_y)) / 1
         future_costs.append(future_cost)
     expected_future_cost = sum(future_costs) / len(future_costs)
     final_cost = cost + expected_future_cost
@@ -97,7 +99,7 @@ def _get_costs_of_moves(board, piece):
                 board, piece, (new_x, interm_piece_y))
             # interm_cost = _calculate_simple_cost(interm_board, removed_rows)
             interm_cost = _calculate_dellacheries_cost(
-               interm_board, removed_rows, (new_x, interm_piece_y))
+                interm_board, removed_rows, (new_x, interm_piece_y))
             cost_to_move[interm_cost] = (new_x, interm_piece_y, piece)
     return cost_to_move
 
@@ -152,8 +154,9 @@ def _calculate_dellacheries_cost(board, removed_rows, offset):
     _, off_y = offset
 
     # Original weights stolen from ref #2 above
+    # weights = [landing height, cleared rows, row transitions, col transitions, holes, wells]
     # weights = [4.5001588, -3.4181268, 3.278882, 9.3486953, 7.8992654, 3.3855972]
-    weights = [6.5001588, -5.4181268, 3.278882, 9.3486953, 7.8992654, 5.3855972]
+    weights = [6.5001588, -5.4181268, 3.278882, 9.3486953, 9.8992654, 5.3855972]
     costs = []
 
     # Add to costs
