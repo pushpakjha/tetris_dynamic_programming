@@ -21,6 +21,7 @@ from tetris_dp import helpers
 from tetris_dp import tetris_players
 
 FAST_MODE = 0
+ANIMATE_FALLING = 0
 
 
 class TetrisApp:
@@ -202,7 +203,7 @@ class TetrisApp:
                     else:
                         pass
             # Set to 1 if you want to animate the falling of the blocks
-            if 0:
+            if ANIMATE_FALLING:
                 if not self.skip_cost:
                     self.piece_x, _, self.piece = tetris_players.single_stage_player(
                         self.board, self.piece)

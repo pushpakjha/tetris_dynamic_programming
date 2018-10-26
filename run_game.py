@@ -9,7 +9,7 @@ if __name__ == '__main__':
     all_scores = []
     if AUTO_RUN:
         start_time = time.time()
-        run_count = 50
+        run_count = 10
         for game_number in range(0, run_count):
             single_game = TetrisApp()
             score = single_game.run()

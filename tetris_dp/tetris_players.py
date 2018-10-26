@@ -5,6 +5,7 @@ import numpy
 
 from tetris_dp import constants
 from tetris_dp import helpers
+USE_DELLACHERIES = 1
 
 
 def random_player(board, piece, shape_x, shape_y):
@@ -73,7 +74,7 @@ def _simulate_stage_threaded(board, cost_to_move, cost):
             best_x, best_y, best_piece = single_stage_player(interm_board, rand_piece)
             interm_board = helpers.add_piece_to_board(
                 interm_board, best_piece, (best_x, best_y))
-            if 0:
+            if not USE_DELLACHERIES:
                 future_cost += _calculate_simple_cost(interm_board) / 1
             else:
                 future_cost += _calculate_dellacheries_cost(
@@ -101,7 +102,7 @@ def _get_costs_of_moves(board, piece):
             interm_board, removed_rows = helpers.get_interm_board(
                 board, piece, (new_x, interm_piece_y))
 
-            if 0:
+            if not USE_DELLACHERIES:
                 interm_cost = _calculate_simple_cost(interm_board, removed_rows)
             else:
                 interm_cost = _calculate_dellacheries_cost(
