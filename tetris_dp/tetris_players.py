@@ -73,9 +73,11 @@ def _simulate_stage_threaded(board, cost_to_move, cost):
             best_x, best_y, best_piece = single_stage_player(interm_board, rand_piece)
             interm_board = helpers.add_piece_to_board(
                 interm_board, best_piece, (best_x, best_y))
-            # future_cost += _calculate_simple_cost(interm_board) / 1
-            future_cost += _calculate_dellacheries_cost(
-                interm_board, removed_rows, (best_x, best_y)) / 1
+            if 0:
+                future_cost += _calculate_simple_cost(interm_board) / 1
+            else:
+                future_cost += _calculate_dellacheries_cost(
+                    interm_board, removed_rows, (best_x, best_y)) / 1
         future_costs.append(future_cost)
     expected_future_cost = sum(future_costs) / len(future_costs)
     final_cost = cost + expected_future_cost
@@ -87,8 +89,9 @@ def _get_costs_of_moves(board, piece):
     """Get the costs of all the moves given a board and piece."""
     cost_to_move = {}
     max_x = len(board[0])
+    rotation_index = constants.TETRIS_SHAPES.index(piece)
 
-    for rand_rotation in range(0, 4):
+    for rand_rotation in range(0, constants.SHAPE_TO_ROTATION[rotation_index]):
         if rand_rotation:
             piece = helpers.rotate_clockwise(piece)
         for new_x in range(0, max_x - len(piece[0]) + 1):
@@ -97,9 +100,12 @@ def _get_costs_of_moves(board, piece):
                 interm_piece_y += 1
             interm_board, removed_rows = helpers.get_interm_board(
                 board, piece, (new_x, interm_piece_y))
-            # interm_cost = _calculate_simple_cost(interm_board, removed_rows)
-            interm_cost = _calculate_dellacheries_cost(
-                interm_board, removed_rows, (new_x, interm_piece_y))
+
+            if 0:
+                interm_cost = _calculate_simple_cost(interm_board, removed_rows)
+            else:
+                interm_cost = _calculate_dellacheries_cost(
+                    interm_board, removed_rows, (new_x, interm_piece_y))
             cost_to_move[interm_cost] = (new_x, interm_piece_y, piece)
     return cost_to_move
 
@@ -144,8 +150,8 @@ def _calculate_dellacheries_cost(board, removed_rows, offset):
     (f1) Landing height: The height at which the current piece fell.
     (f2) Eroded pieces: The contribution of the last piece to the cleared lines time the number
      of cleared lines.
-    (f3) Row transitions: Number of filled cells adjacent to empty cells
-     summed over all rows.
+    (f3) Row transitions: Number of filled cells adjacent to empty cells and empty cells to
+     filled ones summed over all rows.
     (f4) Column transition: Same as (f3) summed over all columns.
      Note that borders count as filled cells.
     (f5) Number of holes: The number of empty cells with at least one filled cell above.
@@ -154,9 +160,10 @@ def _calculate_dellacheries_cost(board, removed_rows, offset):
     _, off_y = offset
 
     # Original weights stolen from ref #2 above
-    # weights = [landing height, cleared rows, row transitions, col transitions, holes, wells]
-    # weights = [4.5001588, -3.4181268, 3.278882, 9.3486953, 7.8992654, 3.3855972]
+    # weight = [landing height, cleared rows, row transitions, col transitions, holes, wells]
+    # orig_weights = [4.5001588, -3.4181268, 3.278882, 9.3486953, 7.8992654, 3.3855972]
     weights = [6.5001588, -5.4181268, 3.278882, 9.3486953, 9.8992654, 5.3855972]
+    # weights = [6, -5, 3, 9, 9, 5]
     costs = []
 
     # Add to costs
@@ -178,11 +185,11 @@ def _calculate_dellacheries_cost(board, removed_rows, offset):
     return _get_cost_from_vectors(costs, weights)
 
 
-def _get_cost_from_vectors(cost, weights):
+def _get_cost_from_vectors(costs, weights):
     """Use matrix math to get a scalar cost."""
-    cost_matrix = numpy.matrix([cost])
-    weights_matrix = numpy.matrix([weights])
-    get_cost = cost_matrix * weights_matrix.getH()  # transpose
+    cost_matrix = numpy.matrix([costs])
+    weight_matrix = numpy.matrix([weights])
+    get_cost = cost_matrix * weight_matrix.getH()  # transpose
     return get_cost.item(0)
 
 

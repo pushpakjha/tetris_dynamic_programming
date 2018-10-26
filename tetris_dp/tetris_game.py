@@ -204,7 +204,7 @@ class TetrisApp:
                 self.board, self.piece)
             self.drop()
             if not FAST_MODE:
-                # time.sleep(0.1)
+                time.sleep(0.6)
                 pygame_clock.tick(constants.CONFIG['maxfps'])
 
     def manual_run(self):
@@ -227,8 +227,10 @@ class TetrisApp:
         while True:
             self.screen.fill((0, 0, 0))
             if self.gameover:
-                self.center_msg("""Game Over! Press space to continue""")
+                self.center_msg("""Game Over!""")
                 print('Final Score: {}'.format(self.score))
+                time.sleep(1)
+                self.quit()
             else:
                 if self.paused:
                     self.center_msg("Paused")
@@ -269,6 +271,7 @@ class TetrisApp:
                         if 0 not in row:
                             self.board = helpers.remove_row(
                                 self.board, i)
+                            self.score += 1
                             break
                     else:
                         break
