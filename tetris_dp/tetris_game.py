@@ -34,6 +34,7 @@ class TetrisApp:
         self.board = None
         self.paused = None
         self.init_game()
+        self.skip_cost = 0
         if not FAST_MODE:
             pygame.init()  # pylint: disable=no-member
             pygame.key.set_repeat(250, 25)
@@ -200,11 +201,18 @@ class TetrisApp:
                         self.quit()
                     else:
                         pass
-            self.piece_x, self.piece_y, self.piece = tetris_players.single_stage_player(
-                self.board, self.piece)
-            self.drop()
+            # Set to 1 if you want to animate the falling of the blocks
+            if 0:
+                if not self.skip_cost:
+                    self.piece_x, _, self.piece = tetris_players.single_stage_player(
+                        self.board, self.piece)
+                self.drop_plus_falling()
+            else:
+                self.piece_x, self.piece_y, self.piece = tetris_players.single_stage_player(
+                    self.board, self.piece)
+                self.drop()
             if not FAST_MODE:
-                time.sleep(0.6)
+                # time.sleep(0.1)
                 pygame_clock.tick(constants.CONFIG['maxfps'])
 
     def manual_run(self):
@@ -266,6 +274,30 @@ class TetrisApp:
                 self.board = helpers.add_piece_to_board(self.board, self.piece,
                                                         (self.piece_x, self.piece_y))
                 self.new_piece()
+                while True:
+                    for i, row in enumerate(self.board[:-1]):
+                        if 0 not in row:
+                            self.board = helpers.remove_row(
+                                self.board, i)
+                            self.score += 1
+                            break
+                    else:
+                        break
+
+    def drop_plus_falling(self):
+        """The drop function when playing automatically but animates falling down.
+
+        This slowly drops a piece to animate a falling piece on the board. When using the
+        automatic tetris players we don't care about that so the drop functions are different.
+        """
+        if not self.gameover and not self.paused:
+            self.piece_y += 1
+            self.skip_cost = 1
+            if helpers.check_collision(self.board, self.piece, (self.piece_x, self.piece_y)):
+                self.board = helpers.add_piece_to_board(self.board, self.piece,
+                                                        (self.piece_x, self.piece_y))
+                self.new_piece()
+                self.skip_cost = 0
                 while True:
                     for i, row in enumerate(self.board[:-1]):
                         if 0 not in row:
