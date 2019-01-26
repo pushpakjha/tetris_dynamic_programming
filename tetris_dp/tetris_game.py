@@ -212,8 +212,11 @@ class TetrisApp:
                 self.piece_x, self.piece_y, self.piece = tetris_players.single_stage_player(
                     self.board, self.piece)
                 self.drop()
-            if not FAST_MODE:
+            if not FAST_MODE and not ANIMATE_FALLING:
                 # time.sleep(0.1)
+                pygame_clock.tick(constants.CONFIG['maxfps'])
+            elif not FAST_MODE:
+                time.sleep(0.05)
                 pygame_clock.tick(constants.CONFIG['maxfps'])
 
     def manual_run(self):
